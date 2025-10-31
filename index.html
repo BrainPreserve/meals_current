@@ -395,26 +395,22 @@ ${goals}`;
     window.clearCustomSection     = clearCustomSection;
     window.toggleAccordion        = toggleAccordion;
   </script>
-</body>
-  <!-- ===== BTMA INTEGRATION (final): Send + Redirect + All Coaching Buttons ===== -->
+  <!-- ===== BTMA INTEGRATION (auto-open after save + all 3 coaching buttons) ===== -->
 <script>
 (function(){
-  // Netlify function endpoints (no secrets here)
+  // REQUIRED: put your BTMA web app URL here (copy from Apps Script → Deploy → Manage deployments → Web app URL)
+  const BTMA_APP_URL = "https://script.google.com/macros/s/AKfycbxELn00mOAldWs4GA__52E3nsHBp0W3NeNPYdPLazoZYhqNzkfSgRiYGFT0ewSD3bGe9g/exec";
+
+  // Netlify function endpoints (no secrets here; your env vars live server-side)
   const FN_SEND        = "/.netlify/functions/send-to-btma";
   const FN_PRO         = "/.netlify/functions/btma-pro-coaching";
   const FN_AI_COACHING = "/.netlify/functions/btma-ai-coaching";
   const FN_AI_ANALYSIS = "/.netlify/functions/btma-ai-analysis";
 
-  // Your BTMA app URL (comes from Netlify env on server; here we read from window if you want a client var)
-  // To keep it zero-edit, we will read it from data-btma-url if you set it on the body tag later.
-  // Fallback: attempt to read from a global variable, otherwise do nothing.
-  const BTMA_APP_URL = (document.body && document.body.getAttribute("data-btma-url")) || null;
-
-  // Known containers from your uploaded file
+  // Existing containers in your uploaded file (do not change unless your IDs are different)
   const RECIPE_CONTAINER_ID = "custom-output";
   const TABLES_CONTAINER_ID = "bp-nutrition";
 
-  // Build controls area (Send + Redirect + Coaching buttons)
   function buildControls() {
     if (document.getElementById("btma-controls-wrapper")) return;
 
@@ -459,7 +455,6 @@ ${goals}`;
       </div>
     `;
 
-    // Insert controls after recipe container if possible; else append to body
     const recipesEl = document.getElementById(RECIPE_CONTAINER_ID);
     if (recipesEl && recipesEl.parentNode) {
       recipesEl.parentNode.insertBefore(wrap, recipesEl.nextSibling);
@@ -467,7 +462,6 @@ ${goals}`;
       document.body.appendChild(wrap);
     }
 
-    // Wire up buttons
     const btnSend = document.getElementById("btn-send-to-btma");
     const status  = document.getElementById("btma-status");
     const btnPro  = document.getElementById("btn-pro-coaching");
@@ -504,14 +498,14 @@ ${goals}`;
             recipes_html,
             tables_html,
             notes: "MGA export (recipes + tables)",
-            signals: [] // we can add structured numeric totals later if desired
+            signals: []
           })
         });
         const data = await resp.json().catch(()=> ({}));
 
         if (resp.ok && data && data.ok !== false) {
           status && (status.textContent = "Saved to BTMA.");
-          // OPEN BTMA APP automatically in a new tab if URL is provided
+          // **Always open BTMA app automatically after successful save**
           if (BTMA_APP_URL) {
             window.open(BTMA_APP_URL, "_blank", "noopener");
           }
@@ -564,10 +558,10 @@ ${goals}`;
     if (btnAIA) btnAIA.addEventListener("click", () => callFn(FN_AI_ANALYSIS, elAIA));
   }
 
-  // Build controls once the page loads
   window.addEventListener("load", buildControls);
 })();
 </script>
 <!-- ===== END BTMA INTEGRATION ===== -->
 
+</body>
 </html>
