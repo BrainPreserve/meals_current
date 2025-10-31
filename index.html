@@ -395,26 +395,25 @@ ${goals}`;
     window.clearCustomSection     = clearCustomSection;
     window.toggleAccordion        = toggleAccordion;
   </script>
- <!-- ===== BTMA INTEGRATION — Single Button + Auto Open BTMA ===== -->
+<!-- ===== BTMA INTEGRATION — Single Button, Open BTMA Immediately, Send In Parallel ===== -->
 <script>
 (function(){
-  // REPLACE THIS with your actual BTMA Apps Script Web App URL (must end with /exec)
+  // REPLACE with your actual BTMA Apps Script Web App URL (must end with /exec)
   const BTMA_APP_URL = "https://script.google.com/macros/s/AKfycbxELn00mOAldWs4GA__52E3nsHBp0W3NeNPYdPLazoZYhqNzkfSgRiYGFT0ewSD3bGe9g/exec";
 
-  // This uses the serverless function you already have to send the data
+  // Netlify function that sends recipes + tables to BTMA (already created)
   const FN_SEND = "/.netlify/functions/send-to-btma";
 
-  // These are the existing containers in your page where recipes and tables appear
+  // Where your page renders results (from your uploaded files)
   const RECIPE_CONTAINER_ID = "custom-output";
   const TABLES_CONTAINER_ID = "bp-nutrition";
 
-  function buildSingleCTA() {
+  function addCTA() {
     if (document.getElementById("btma-single-cta")) return;
 
     const wrap = document.createElement("div");
     wrap.id = "btma-single-cta";
     wrap.style.marginTop = "16px";
-
     wrap.innerHTML = `
       <div style="margin-bottom:10px; font-size:14px; color:#344054; line-height:1.45;">
         <strong>Click the button below</strong> to send your recipe(s), and the accompanying nutrition data, to the
@@ -429,9 +428,9 @@ ${goals}`;
       <span id="btma-status" style="margin-left:10px; font-size:14px; color:#475467;"></span>
     `;
 
-    const recipesEl = document.getElementById(RECIPE_CONTAINER_ID);
-    if (recipesEl && recipesEl.parentNode) {
-      recipesEl.parentNode.insertBefore(wrap, recipesEl.nextSibling);
+    const anchor = document.getElementById(RECIPE_CONTAINER_ID);
+    if (anchor && anchor.parentNode) {
+      anchor.parentNode.insertBefore(wrap, anchor.nextSibling);
     } else {
       document.body.appendChild(wrap);
     }
@@ -441,15 +440,16 @@ ${goals}`;
     const elRecipes = document.getElementById(RECIPE_CONTAINER_ID);
     const elTables  = document.getElementById(TABLES_CONTAINER_ID);
 
-    async function sendThenOpen() {
-      // Open a new tab immediately so popup blockers allow it; we navigate it after save
-      let btmaTab = null;
-      try { btmaTab = window.open("about:blank", "_blank", "noopener"); } catch(_) {}
+    btn.addEventListener("click", () => {
+      // 1) OPEN BTMA IMMEDIATELY (avoids popup blockers + avoids the “blank tab” issue)
+      //    If the URL is correct, this tab will show your BTMA app right away.
+      window.open(BTMA_APP_URL, "_blank", "noopener");
 
+      // 2) SEND DATA TO BTMA IN PARALLEL (no waiting to open the app)
       const recipes_html = elRecipes ? elRecipes.innerHTML : "";
       const tables_html  = elTables  ? elTables.innerHTML  : "";
 
-      // Simple estimate of how many recipes (optional)
+      // Optional estimate of recipe count
       let recipe_count = 1;
       try {
         if (recipes_html) {
@@ -462,45 +462,35 @@ ${goals}`;
 
       statusEl && (statusEl.textContent = "Sending to BTMA...");
 
-      try {
-        const resp = await fetch(FN_SEND, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            recipe_count,
-            recipes_html,
-            tables_html,
-            notes: "MGA export (recipes + tables)",
-            signals: []
-          })
-        });
-        const data = await resp.json().catch(()=> ({}));
-
-        if (resp.ok && data && data.ok !== false) {
-          statusEl && (statusEl.textContent = "Saved to BTMA. Opening app...");
-          if (btmaTab && BTMA_APP_URL) {
-            btmaTab.location = BTMA_APP_URL;
-          } else if (BTMA_APP_URL) {
-            window.open(BTMA_APP_URL, "_blank", "noopener");
-          }
+      fetch(FN_SEND, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipe_count,
+          recipes_html,
+          tables_html,
+          notes: "MGA export (recipes + tables)",
+          signals: []
+        })
+      })
+      .then(r => r.json().catch(()=> ({})))
+      .then(data => {
+        if (data && data.ok !== false) {
+          statusEl && (statusEl.textContent = "Saved to BTMA.");
         } else {
-          statusEl && (statusEl.textContent = "BTMA error: " + (data && (data.error || data.message) || resp.status));
-          try { if (btmaTab) btmaTab.close(); } catch(_){}
+          statusEl && (statusEl.textContent = "BTMA error: " + (data && (data.error || data.message) || "unknown"));
         }
-      } catch (err) {
+      })
+      .catch(() => {
         statusEl && (statusEl.textContent = "Network error sending to BTMA");
-        try { if (btmaTab) btmaTab.close(); } catch(_){}
-      }
-    }
-
-    if (btn) btn.addEventListener("click", sendThenOpen);
+      });
+    });
   }
 
-  window.addEventListener("load", buildSingleCTA);
+  window.addEventListener("load", addCTA);
 })();
 </script>
 <!-- ===== END BTMA INTEGRATION ===== -->
-
 
 </body>
 </html>
