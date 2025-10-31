@@ -395,5 +395,107 @@ ${goals}`;
     window.clearCustomSection     = clearCustomSection;
     window.toggleAccordion        = toggleAccordion;
   </script>
+  <!-- ===== BTMA INTEGRATION: Button + Script (copy-paste entire block) ===== -->
+<div id="btma-export-controls" style="margin-top:16px; display:none;">
+  <button id="btn-send-to-btma"
+          style="padding:10px 16px; border-radius:10px; background:#0ea5e9; color:#fff; border:none; font-weight:600;">
+    Send to BTMA
+  </button>
+  <span id="btma-status" style="margin-left:10px; font-size:14px; color:#475467;"></span>
+</div>
+
+<script>
+(function(){
+  // CONFIG — no secrets here; secrets live in Netlify env vars
+  const NETLIFY_FUNCTION_URL = "/.netlify/functions/send-to-btma";
+
+  // Where your app currently renders results (from uploaded file scan)
+  const RECIPE_CONTAINER_ID = "custom-output";
+  const TABLES_CONTAINER_ID = "bp-nutrition";
+
+  // Show the button only after results appear
+  function revealBtmaButtonIfReady() {
+    const recipeEl = document.getElementById(RECIPE_CONTAINER_ID);
+    const tablesEl = document.getElementById(TABLES_CONTAINER_ID);
+    const controls = document.getElementById("btma-export-controls");
+
+    const hasRecipes = recipeEl && recipeEl.innerHTML.trim().length > 0;
+    const hasTables  = tablesEl && tablesEl.innerHTML.trim().length > 0;
+
+    if (controls && (hasRecipes || hasTables)) {
+      controls.style.display = "block";
+    }
+  }
+
+  // Observe changes to results containers so the button appears when content is generated
+  const observeTargets = [RECIPE_CONTAINER_ID, TABLES_CONTAINER_ID];
+  observeTargets.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const observer = new MutationObserver(revealBtmaButtonIfReady);
+    observer.observe(el, { childList: true, subtree: true });
+  });
+  // Also try once on load (in case content is already present)
+  window.addEventListener("load", revealBtmaButtonIfReady);
+
+  async function sendToBtma() {
+    const statusEl = document.getElementById("btma-status");
+    const recipeEl = document.getElementById(RECIPE_CONTAINER_ID);
+    const tablesEl = document.getElementById(TABLES_CONTAINER_ID);
+
+    const recipes_html = recipeEl ? recipeEl.innerHTML : "";
+    const tables_html  = tablesEl ? tablesEl.innerHTML : "";
+
+    // OPTIONAL: If you track how many recipes were requested, capture it here;
+    // otherwise we will try to estimate by counting headings in recipe HTML.
+    let recipe_count = 1;
+    try {
+      if (recipes_html) {
+        const tmp = document.createElement("div");
+        tmp.innerHTML = recipes_html;
+        // Heuristic: count h2/h3 that look like recipe titles
+        const titles = tmp.querySelectorAll("h2, h3");
+        if (titles && titles.length > 0) recipe_count = titles.length;
+      }
+    } catch(_) {}
+
+    // Signals: If you have structured numbers available in JS, you can add them here.
+    // For now, we keep it empty — BTMA will still store the HTML and associate it with the session.
+    const signals = [];
+
+    const out = {
+      recipe_name: "",     // optional (if single recipe, set a known title here)
+      recipe_count,
+      recipes_html,
+      tables_html,
+      notes: "MGA export (recipes + nutrition tables)",
+      signals
+    };
+
+    try {
+      statusEl && (statusEl.textContent = "Sending to BTMA...");
+      const resp = await fetch(NETLIFY_FUNCTION_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(out)
+      });
+      const data = await resp.json().catch(()=> ({}));
+
+      if (resp.ok && data && data.ok !== false) {
+        statusEl && (statusEl.textContent = "Saved to BTMA.");
+      } else {
+        statusEl && (statusEl.textContent = "BTMA error: " + (data && (data.error || data.message) || resp.status));
+      }
+    } catch (err) {
+      statusEl && (statusEl.textContent = "Network error sending to BTMA");
+    }
+  }
+
+  const btn = document.getElementById("btn-send-to-btma");
+  if (btn) btn.addEventListener("click", sendToBtma);
+})();
+</script>
+<!-- ===== END BTMA INTEGRATION ===== -->
+
 </body>
 </html>
