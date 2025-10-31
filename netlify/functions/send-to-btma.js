@@ -11,28 +11,22 @@ exports.handler = async (event) => {
     if (!BTMA_EXEC_URL || !BTMA_TOKEN) {
       return {
         statusCode: 500,
-        body: JSON.stringify({
-          ok: false,
-          error: "Missing BTMA_EXEC_URL or BTMA_TOKEN env var",
-        }),
+        body: JSON.stringify({ ok: false, error: "Missing BTMA_EXEC_URL or BTMA_TOKEN env var" }),
       };
     }
 
     const incoming = JSON.parse(event.body || "{}");
 
+    // CALL the new BTMA endpoint that writes into signals_log (your exact schema)
     const payload = {
-      fn: "saveSignals",
-      source: "meal_gen",
-      timestamp_iso: new Date().toISOString(),
-      signals: incoming.signals || [],
-      context: {
-        recipe_name: incoming.recipe_name || "",
-        recipe_count: incoming.recipe_count || 1,
-        recipes_html: incoming.recipes_html || "",
-        tables_html: incoming.tables_html || "",
-        notes: incoming.notes || "MGA export (recipes + nutrition tables)"
-      },
+      fn: "saveSignals_MGA",
       token: BTMA_TOKEN,
+      recipes_html: incoming.recipes_html || "",
+      tables_html:  incoming.tables_html  || "",
+      recipe_count: incoming.recipe_count || 1,
+      // user_id/session_id: include later if/when you add auth/session to MGA
+      user_id:     incoming.user_id || "",
+      session_id:  incoming.session_id || ""
     };
 
     const resp = await fetch(BTMA_EXEC_URL, {
@@ -46,22 +40,9 @@ exports.handler = async (event) => {
     return {
       statusCode: resp.status,
       body: JSON.stringify(data),
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
+      headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
     };
   } catch (err) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        ok: false,
-        error: String(err && err.message ? err.message : err),
-      }),
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
-    };
+    return { statusCode: 500, body: JSON.stringify({ ok:false, error:String(err) }) };
   }
 };
