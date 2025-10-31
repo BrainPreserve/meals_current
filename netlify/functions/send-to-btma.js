@@ -1,5 +1,4 @@
 // netlify/functions/send-to-btma.js
-
 exports.handler = async (event) => {
   try {
     if (event.httpMethod !== "POST") {
@@ -21,24 +20,18 @@ exports.handler = async (event) => {
 
     const incoming = JSON.parse(event.body || "{}");
 
-    // Basic normalization — we keep HTML intact
     const payload = {
       fn: "saveSignals",
       source: "meal_gen",
       timestamp_iso: new Date().toISOString(),
-      // We use 'signals' as a required field for BTMA; we also send full HTML in 'context'
       signals: incoming.signals || [],
-
-      // We put all rich HTML and metadata into context (BTMA will store it in the log)
       context: {
         recipe_name: incoming.recipe_name || "",
         recipe_count: incoming.recipe_count || 1,
         recipes_html: incoming.recipes_html || "",
         tables_html: incoming.tables_html || "",
-        notes: incoming.notes || "MGA export",
-        // If later you add user info or client hints, you can include them here safely
+        notes: incoming.notes || "MGA export (recipes + nutrition tables)"
       },
-
       token: BTMA_TOKEN,
     };
 
