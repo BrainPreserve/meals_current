@@ -395,64 +395,38 @@ ${goals}`;
     window.clearCustomSection     = clearCustomSection;
     window.toggleAccordion        = toggleAccordion;
   </script>
-  <!-- ===== BTMA INTEGRATION (auto-open after save + all 3 coaching buttons) ===== -->
+ <!-- ===== BTMA INTEGRATION — Single Button + Auto Open BTMA ===== -->
 <script>
 (function(){
-  // REQUIRED: put your BTMA web app URL here (copy from Apps Script → Deploy → Manage deployments → Web app URL)
+  // REPLACE THIS with your actual BTMA Apps Script Web App URL (must end with /exec)
   const BTMA_APP_URL = "https://script.google.com/macros/s/AKfycbxELn00mOAldWs4GA__52E3nsHBp0W3NeNPYdPLazoZYhqNzkfSgRiYGFT0ewSD3bGe9g/exec";
 
-  // Netlify function endpoints (no secrets here; your env vars live server-side)
-  const FN_SEND        = "/.netlify/functions/send-to-btma";
-  const FN_PRO         = "/.netlify/functions/btma-pro-coaching";
-  const FN_AI_COACHING = "/.netlify/functions/btma-ai-coaching";
-  const FN_AI_ANALYSIS = "/.netlify/functions/btma-ai-analysis";
+  // This uses the serverless function you already have to send the data
+  const FN_SEND = "/.netlify/functions/send-to-btma";
 
-  // Existing containers in your uploaded file (do not change unless your IDs are different)
+  // These are the existing containers in your page where recipes and tables appear
   const RECIPE_CONTAINER_ID = "custom-output";
   const TABLES_CONTAINER_ID = "bp-nutrition";
 
-  function buildControls() {
-    if (document.getElementById("btma-controls-wrapper")) return;
+  function buildSingleCTA() {
+    if (document.getElementById("btma-single-cta")) return;
 
     const wrap = document.createElement("div");
-    wrap.id = "btma-controls-wrapper";
+    wrap.id = "btma-single-cta";
     wrap.style.marginTop = "16px";
 
     wrap.innerHTML = `
-      <div id="btma-export-controls" style="margin-bottom:10px;">
-        <button id="btn-send-to-btma"
-                style="padding:10px 16px; border-radius:10px; background:#0ea5e9; color:#fff; border:none; font-weight:600;">
-          Send to BTMA
-        </button>
-        <span id="btma-status" style="margin-left:10px; font-size:14px; color:#475467;"></span>
-        <div style="margin-top:6px; font-size:12px; color:#667085;">
-          Generate your recipe(s) first, then click <strong>Send to BTMA</strong>.
-        </div>
+      <div style="margin-bottom:10px; font-size:14px; color:#344054; line-height:1.45;">
+        <strong>Click the button below</strong> to send your recipe(s), and the accompanying nutrition data, to the
+        <strong>Brain Health Testing and Monitoring App</strong> to add your health data. Then, the app will provide
+        <strong>3 different types of coaching</strong> for you, based on all your data.
       </div>
 
-      <div id="btma-coach-controls" style="margin-bottom:10px;">
-        <button id="btn-pro-coaching"
-                style="padding:10px 16px; border-radius:10px; background:#3b82f6; color:#fff; border:none; font-weight:600; margin-right:6px;">
-          Pro Coaching
-        </button>
-        <button id="btn-ai-coaching"
-                style="padding:10px 16px; border-radius:10px; background:#10b981; color:#fff; border:none; font-weight:600; margin-right:6px;">
-          AI Coaching
-        </button>
-        <button id="btn-ai-analysis"
-                style="padding:10px 16px; border-radius:10px; background:#f59e0b; color:#fff; border:none; font-weight:600;">
-          AI Analysis
-        </button>
-        <span id="btma-coach-status" style="margin-left:10px; font-size:14px; color:#475467;"></span>
-      </div>
-
-      <div id="btma-coaching-panel"
-           style="margin-top:10px; padding:12px; border:1px solid #d0d5dd; border-radius:10px; background:#f9fafb; display:none;">
-        <div style="font-weight:700; margin-bottom:6px;">BTMA Outputs</div>
-        <div id="btma-pro-content" style="white-space:pre-wrap; margin-bottom:10px;"></div>
-        <div id="btma-ai-coaching-content" style="white-space:pre-wrap; margin-bottom:10px;"></div>
-        <div id="btma-ai-analysis-content" style="white-space:pre-wrap;"></div>
-      </div>
+      <button id="btn-send-open-btma"
+              style="padding:12px 18px; border-radius:10px; background:#0ea5e9; color:#fff; border:none; font-weight:700; font-size:16px;">
+        Send to the Brain Health Testing and Monitoring App
+      </button>
+      <span id="btma-status" style="margin-left:10px; font-size:14px; color:#475467;"></span>
     `;
 
     const recipesEl = document.getElementById(RECIPE_CONTAINER_ID);
@@ -462,22 +436,21 @@ ${goals}`;
       document.body.appendChild(wrap);
     }
 
-    const btnSend = document.getElementById("btn-send-to-btma");
-    const status  = document.getElementById("btma-status");
-    const btnPro  = document.getElementById("btn-pro-coaching");
-    const btnAIC  = document.getElementById("btn-ai-coaching");
-    const btnAIA  = document.getElementById("btn-ai-analysis");
-    const coachStatus = document.getElementById("btma-coach-status");
-    const panel   = document.getElementById("btma-coaching-panel");
-
+    const btn = document.getElementById("btn-send-open-btma");
+    const statusEl = document.getElementById("btma-status");
     const elRecipes = document.getElementById(RECIPE_CONTAINER_ID);
     const elTables  = document.getElementById(TABLES_CONTAINER_ID);
 
-    async function sendToBtma() {
+    async function sendThenOpen() {
+      // Open a new tab immediately so popup blockers allow it; we navigate it after save
+      let btmaTab = null;
+      try { btmaTab = window.open("about:blank", "_blank", "noopener"); } catch(_) {}
+
       const recipes_html = elRecipes ? elRecipes.innerHTML : "";
       const tables_html  = elTables  ? elTables.innerHTML  : "";
-      let recipe_count = 1;
 
+      // Simple estimate of how many recipes (optional)
+      let recipe_count = 1;
       try {
         if (recipes_html) {
           const tmp = document.createElement("div");
@@ -487,7 +460,7 @@ ${goals}`;
         }
       } catch(_) {}
 
-      status && (status.textContent = "Sending to BTMA...");
+      statusEl && (statusEl.textContent = "Sending to BTMA...");
 
       try {
         const resp = await fetch(FN_SEND, {
@@ -504,64 +477,30 @@ ${goals}`;
         const data = await resp.json().catch(()=> ({}));
 
         if (resp.ok && data && data.ok !== false) {
-          status && (status.textContent = "Saved to BTMA.");
-          // **Always open BTMA app automatically after successful save**
-          if (BTMA_APP_URL) {
+          statusEl && (statusEl.textContent = "Saved to BTMA. Opening app...");
+          if (btmaTab && BTMA_APP_URL) {
+            btmaTab.location = BTMA_APP_URL;
+          } else if (BTMA_APP_URL) {
             window.open(BTMA_APP_URL, "_blank", "noopener");
           }
         } else {
-          status && (status.textContent = "BTMA error: " + (data && (data.error || data.message) || resp.status));
+          statusEl && (statusEl.textContent = "BTMA error: " + (data && (data.error || data.message) || resp.status));
+          try { if (btmaTab) btmaTab.close(); } catch(_){}
         }
       } catch (err) {
-        status && (status.textContent = "Network error sending to BTMA");
+        statusEl && (statusEl.textContent = "Network error sending to BTMA");
+        try { if (btmaTab) btmaTab.close(); } catch(_){}
       }
     }
 
-    async function callFn(fnUrl, targetEl) {
-      try {
-        coachStatus && (coachStatus.textContent = "Requesting from BTMA...");
-        const resp = await fetch(fnUrl, { method: "POST" });
-        const data = await resp.json().catch(()=> ({}));
-
-        if (!resp.ok || (data && data.ok === false)) {
-          coachStatus && (coachStatus.textContent = "BTMA error: " + (data && (data.error || data.message) || resp.status));
-          return;
-        }
-
-        let display = "";
-        if (typeof data === "string") {
-          display = data;
-        } else if (data && data.coaching) {
-          display = Array.isArray(data.coaching) ? data.coaching.join("\n\n") : String(data.coaching);
-        } else if (data && data.text) {
-          display = String(data.text);
-        } else {
-          display = JSON.stringify(data, null, 2);
-        }
-
-        targetEl.textContent = display || "No result returned.";
-        panel.style.display = "block";
-        coachStatus && (coachStatus.textContent = "Loaded.");
-      } catch (err) {
-        coachStatus && (coachStatus.textContent = "Network error contacting BTMA");
-      }
-    }
-
-    if (btnSend) btnSend.addEventListener("click", sendToBtma);
-
-    const elPro  = document.getElementById("btma-pro-content");
-    const elAIC  = document.getElementById("btma-ai-coaching-content");
-    const elAIA  = document.getElementById("btma-ai-analysis-content");
-
-    if (btnPro) btnPro.addEventListener("click", () => callFn(FN_PRO, elPro));
-    if (btnAIC) btnAIC.addEventListener("click", () => callFn(FN_AI_COACHING, elAIC));
-    if (btnAIA) btnAIA.addEventListener("click", () => callFn(FN_AI_ANALYSIS, elAIA));
+    if (btn) btn.addEventListener("click", sendThenOpen);
   }
 
-  window.addEventListener("load", buildControls);
+  window.addEventListener("load", buildSingleCTA);
 })();
 </script>
 <!-- ===== END BTMA INTEGRATION ===== -->
+
 
 </body>
 </html>
