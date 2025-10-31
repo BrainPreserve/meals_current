@@ -1,3 +1,10 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+
+# Allow your site to call your Netlify Functions during testing.
+# (You can tighten this later; this is safe for staging.)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
