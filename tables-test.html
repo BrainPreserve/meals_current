@@ -32,5 +32,62 @@
       m.innerHTML = '<div class="error">Could not find /assets/nutrition-tables.js. Make sure the file exists and is named exactly.</div>';
     }
   </script>
+  <!-- === BEGIN: BTMA Test Sender (safe, isolated) === -->
+<div id="btma-test-box" style="margin:24px;padding:16px;border:1px solid #ccc;border-radius:12px;">
+  <h3>BTMA Context Test (Safe)</h3>
+  <p>This button sends a small, harmless sample context to your BTMA <em>signals</em> sheet.</p>
+
+  <!-- If your BTMA uses a specific client id, type it here before sending -->
+  <label for="btma-client-id">Client ID (use the exact one BTMA expects):</label>
+  <input id="btma-client-id" type="text" placeholder="demo" value="demo" style="margin-left:8px;padding:4px 8px;" />
+
+  <div style="margin-top:12px;">
+    <button id="sendToBTMATestBtn" style="padding:8px 12px;cursor:pointer;">Test: Send Sample Context to BTMA</button>
+  </div>
+
+  <pre id="btmaTestResult" style="white-space:pre-wrap;margin-top:12px;padding:12px;background:#f7f7f7;border-radius:8px;border:1px solid #e6e6e6;"></pre>
+</div>
+
+<script>
+(function () {
+  const btn = document.getElementById('sendToBTMATestBtn');
+  const out = document.getElementById('btmaTestResult');
+  const idInput = document.getElementById('btma-client-id');
+
+  async function sendSample() {
+    out.textContent = 'Sending…';
+
+    // IMPORTANT:
+    // If your BTMA uses a specific client_id (e.g., an email, code, or name),
+    // type that exact value into the input box before clicking the button.
+    const clientId = (idInput.value || 'demo').trim();
+
+    const payload = {
+      client_id: clientId,
+      source_app: 'meal_gen',
+      meals_html: '<div>Test meal: Lentil salad with EVOO and walnuts</div>',
+      tables_html: '<table><tr><td>Fiber</td><td>High</td></tr></table>',
+      recipe_count: '1'
+    };
+
+    try {
+      const resp = await fetch('/.netlify/functions/send-to-btma', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const text = await resp.text();
+      out.textContent = `HTTP ${resp.status}\n\n` + text;
+    } catch (err) {
+      out.textContent = 'Network or runtime error:\n' + (err && err.message ? err.message : String(err));
+    }
+  }
+
+  btn.addEventListener('click', sendSample);
+})();
+</script>
+<!-- === END: BTMA Test Sender === -->
+
 </body>
 </html>
