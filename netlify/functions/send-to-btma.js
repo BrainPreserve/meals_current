@@ -15,29 +15,29 @@ exports.handler = async (event) => {
       };
     }
 
-    // Body is provided by client-side JS in index.html
-    // Expected shape:
-    // {
-    //   client_id: "demo-client-001",
-    //   meals_html: "<div>...</div>",
-    //   tables_html: "<div>...</div>",
-    //   recipe_count: 2,
-    //   source_app: "meal_gen"
-    // }
+    // The page may send either recipes_html (current index.html) OR meals_html (older name).
     let body = {};
     try { body = JSON.parse(event.body || "{}"); } catch (_) {}
 
+    const recipesHtml = String(body.recipes_html || "");
+    const mealsHtmlIn = String(body.meals_html || "");
+    const tablesHtml  = String(body.tables_html || "");
+    const recipeCount = String(body.recipe_count || "");
+
     const payload = {
       fn: "savesignals",
-      client_id: String(body.client_id || "demo"),
+      client_id: String(body.client_id || "demo"),    // UI doesn’t show this; “demo” is fine
       source: String(body.source_app || "meal_gen"),
       timestamp_iso: new Date().toISOString(),
       signals: [], // reserved (not used here)
+
+      // Map recipes_html -> meals_html for BTMA context
       context: {
-        meals_html:  String(body.meals_html  || ""),
-        tables_html: String(body.tables_html || ""),
-        recipe_count: String(body.recipe_count || "")
+        meals_html:  mealsHtmlIn || recipesHtml,      // accept BOTH names safely
+        tables_html: tablesHtml,
+        recipe_count: recipeCount
       },
+
       token: BTMA_TOKEN
     };
 
@@ -47,11 +47,13 @@ exports.handler = async (event) => {
       body: JSON.stringify(payload),
     });
 
-    const data = await resp.json().catch(() => ({}));
+    let text = await resp.text();
+    let json;
+    try { json = JSON.parse(text); } catch { json = { raw: text }; }
 
     return {
       statusCode: resp.status,
-      body: JSON.stringify(data),
+      body: JSON.stringify(json),
       headers: {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*"
