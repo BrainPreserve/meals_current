@@ -15,25 +15,29 @@ exports.handler = async (event) => {
       };
     }
 
-    // The page may send either recipes_html (current index.html) OR meals_html (older name).
     let body = {};
     try { body = JSON.parse(event.body || "{}"); } catch (_) {}
 
+    // Accept BOTH names: recipes_html (from your page) OR meals_html
     const recipesHtml = String(body.recipes_html || "");
     const mealsHtmlIn = String(body.meals_html || "");
     const tablesHtml  = String(body.tables_html || "");
     const recipeCount = String(body.recipe_count || "");
+    const clientId    = String(body.client_id || "demo");   // BTMA UI doesn’t need to show this
+    const sourceApp   = String(body.source_app || "meal_gen");
 
     const payload = {
       fn: "savesignals",
-      client_id: String(body.client_id || "demo"),    // UI doesn’t show this; “demo” is fine
-      source: String(body.source_app || "meal_gen"),
+      client_id: clientId,
+      source: sourceApp,
       timestamp_iso: new Date().toISOString(),
-      signals: [], // reserved (not used here)
 
-      // Map recipes_html -> meals_html for BTMA context
+      // Reserved signals array (optional)
+      signals: [],
+
+      // Unified context block for BTMA
       context: {
-        meals_html:  mealsHtmlIn || recipesHtml,      // accept BOTH names safely
+        meals_html:  mealsHtmlIn || recipesHtml,  // prefer meals_html; fallback to recipes_html
         tables_html: tablesHtml,
         recipe_count: recipeCount
       },
@@ -47,7 +51,7 @@ exports.handler = async (event) => {
       body: JSON.stringify(payload),
     });
 
-    let text = await resp.text();
+    const text = await resp.text();
     let json;
     try { json = JSON.parse(text); } catch { json = { raw: text }; }
 
