@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Mirror Test</title></head>
+<body style="font-family:sans-serif;max-width:760px;margin:40px auto">
+  <h2>Mirror MGA → Context Bus (Test)</h2>
+  <p>Use this page to send sample recipe/tables HTML to the Context Bus without touching your main index.</p>
+
+  <label>Client ID</label>
+  <input id="cid" placeholder="e.g., demo" style="width:240px;margin-right:8px">
+  <button id="btnSend">Send Sample Context</button>
+
+  <pre id="out" style="white-space:pre-wrap;border:1px solid #ddd;padding:12px;margin-top:16px;border-radius:8px"></pre>
+
+  <script>
+    async function postJSON(url, body) {
+      const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || r.statusText);
+      return j;
+    }
+
+    document.getElementById('btnSend').addEventListener('click', async () => {
+      const client_id = document.getElementById('cid').value.trim();
+      if (!client_id) { alert('Enter Client ID'); return; }
+      const out = document.getElementById('out');
+      out.textContent = 'Sending to mirror-mga...';
+      try {
+        // Sample small payload for validation (replace with real strings later if you want)
+        const meals_html = '<div><h3>Salmon + Lentils Bowl</h3><ul><li>Salmon</li><li>Lentils</li><li>Arugula</li></ul></div>';
+        const tables_html = '<table><tr><th>Nutrient</th><th>Value</th></tr><tr><td>Protein</td><td>42 g</td></tr></table>';
+        const j = await postJSON('/.netlify/functions/mirror-mga', { client_id, meals_html, tables_html, recipe_count: 1 });
+        out.textContent = JSON.stringify(j, null, 2);
+      } catch (e) {
+        out.textContent = 'Error: ' + e.message;
+      }
+    });
+  </script>
+</body>
+</html>
