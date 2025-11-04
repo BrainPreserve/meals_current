@@ -1,6 +1,7 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+  external_node_modules = ["firebase-admin", "node-fetch"]
 
 # Allow your site to call your Netlify Functions during testing.
 # (You can tighten this later; this is safe for staging.)
